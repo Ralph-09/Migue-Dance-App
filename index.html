@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dance Beats Sync</title>
+  <title>Dance Beats Sync - Waveform Analyzer</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col items-center p-4">
@@ -17,12 +17,31 @@
       <input type="file" id="audioFile" accept="audio/*" class="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-amber-500 file:text-slate-900 hover:file:bg-amber-400 font-semibold cursor-pointer">
     </div>
 
-    <!-- PASO 2: PROCESAR / CALIBRAR (REPRODUCCIÓN Y TAP) -->
+    <!-- PASO 2: ANALIZAR Y PROCESAR ONDA -->
     <div class="mb-6 bg-slate-900 p-4 rounded-lg border border-slate-700 space-y-4">
-      <h2 class="text-sm font-medium text-slate-300">2. Procesar y Cuadrar Tiempos</h2>
+      <h2 class="text-sm font-medium text-slate-300">2. Análisis Digital de Onda</h2>
       
-      <!-- Controles de Prueba / Calibración -->
-      <div class="grid grid-cols-3 gap-2">
+      <button id="analyzeWaveBtn" disabled class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 font-bold rounded text-sm transition shadow-md flex items-center justify-center space-x-2">
+        <span>🔍 ESCANEAR RITMO Y ONDA DE AUDIO</span>
+      </button>
+
+      <!-- Estado / Progress -->
+      <p id="analysisStatus" class="text-xs text-center text-slate-400 min-h-[1rem]">Carga una canción para escanear.</p>
+
+      <!-- Resultados detectados automáticamente -->
+      <div class="grid grid-cols-2 gap-4 pt-2">
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">BPM Detectado</label>
+          <input type="number" id="bpmInput" value="120" step="0.1" class="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-xl font-bold text-amber-400 focus:outline-none text-center">
+        </div>
+        <div>
+          <label class="text-xs text-slate-400 block mb-1">Primer Golpe (Segundos)</label>
+          <input type="number" id="offsetInput" value="0.00" step="0.01" class="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-xl font-bold text-indigo-400 focus:outline-none text-center">
+        </div>
+      </div>
+
+      <!-- Controles de Prueba -->
+      <div class="grid grid-cols-3 gap-2 pt-2">
         <button id="previewPlayBtn" disabled class="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 font-bold rounded text-xs transition">
           ▶️ Escuchar
         </button>
@@ -37,30 +56,6 @@
       <div class="flex justify-between items-center bg-slate-800 p-2 rounded border border-slate-700">
         <span class="text-xs text-slate-400">Tiempo actual:</span>
         <span id="currentTimeDisplay" class="text-sm font-mono text-amber-400 font-bold">00:00</span>
-      </div>
-
-      <!-- Ajuste de BPM y Tap Tempo -->
-      <div class="grid grid-cols-2 gap-4 pt-2">
-        <div>
-          <label class="text-xs text-slate-400 block mb-1">BPM Exacto</label>
-          <input type="number" id="bpmInput" value="120" step="0.5" class="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-xl font-bold text-amber-400 focus:outline-none text-center">
-        </div>
-        <div>
-          <label class="text-xs text-slate-400 block mb-1">Tap Tempo</label>
-          <button id="tapBtn" disabled class="w-full h-11 bg-slate-700 hover:bg-slate-600 active:bg-amber-500 active:text-slate-900 font-bold rounded transition text-sm">
-            🥁 Tap Tempo
-          </button>
-        </div>
-      </div>
-
-      <!-- Botón Marcar Tiempo 1 -->
-      <div>
-        <button id="setOffsetBtn" disabled class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 font-bold rounded text-sm transition">
-          📍 Marcar "Tiempo 1" (Golpe Inicial)
-        </button>
-        <p id="offsetStatus" class="text-xs text-center mt-2 text-slate-400 h-4">
-          Tiempo 1 no fijado (0.00s)
-        </p>
       </div>
     </div>
 
@@ -109,15 +104,16 @@
       return `${bases[i % bases.length]} ${variaciones[i % variaciones.length]}`;
     });
 
+    let rawAudioBuffer = null;
     let bpm = 120;
     let firstBeatOffset = 0;
-    let tapTimes = [];
     let lastAnnouncedBar = -1;
 
     const audioPlayer = document.getElementById('audioPlayer');
     const audioFile = document.getElementById('audioFile');
+    const analyzeWaveBtn = document.getElementById('analyzeWaveBtn');
+    const analysisStatus = document.getElementById('analysisStatus');
     
-    // Botones de control
     const previewPlayBtn = document.getElementById('previewPlayBtn');
     const previewPauseBtn = document.getElementById('previewPauseBtn');
     const resetBtn = document.getElementById('resetBtn');
@@ -128,27 +124,123 @@
     
     const currentTimeDisplay = document.getElementById('currentTimeDisplay');
     const bpmInput = document.getElementById('bpmInput');
-    const tapBtn = document.getElementById('tapBtn');
-    const setOffsetBtn = document.getElementById('setOffsetBtn');
-    const offsetStatus = document.getElementById('offsetStatus');
+    const offsetInput = document.getElementById('offsetInput');
     const barDisplay = document.getElementById('barDisplay');
     const beatDisplay = document.getElementById('beatDisplay');
     const nextStepDisplay = document.getElementById('nextStepDisplay');
 
-    // 1. Cargar archivo de audio
-    audioFile.addEventListener('change', (e) => {
+    // 1. Cargar el archivo y decodificar matriz de audio
+    audioFile.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
         audioPlayer.src = URL.createObjectURL(file);
+        analysisStatus.textContent = "Cargando archivo en memoria...";
         
-        // Habilitar todos los botones
-        [previewPlayBtn, previewPauseBtn, resetBtn, playBtn, pauseBtn, mainResetBtn, tapBtn, setOffsetBtn].forEach(b => b.disabled = false);
+        const arrayBuffer = await file.arrayBuffer();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        rawAudioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+        analyzeWaveBtn.disabled = false;
+        [previewPlayBtn, previewPauseBtn, resetBtn, playBtn, pauseBtn, mainResetBtn].forEach(b => b.disabled = false);
         
+        analysisStatus.textContent = "Audio decodificado listo para escanear.";
         resetSongState();
       }
     });
 
-    // Reproducción y Pausa
+    // 2. MOTOR DE ANÁLISIS DIGITAL DE ONDA
+    analyzeWaveBtn.addEventListener('click', async () => {
+      if (!rawAudioBuffer) return;
+
+      analysisStatus.textContent = "⏳ Analizando frecuencias y picos de onda...";
+      analyzeWaveBtn.disabled = true;
+
+      setTimeout(async () => {
+        try {
+          const result = await detectBpmAndOffset(rawAudioBuffer);
+          bpm = result.bpm;
+          firstBeatOffset = result.offset;
+
+          bpmInput.value = bpm.toFixed(1);
+          offsetInput.value = firstBeatOffset.toFixed(2);
+
+          analysisStatus.textContent = `⚡ Análisis Completo: ${bpm.toFixed(1)} BPM | Primer golpe en ${firstBeatOffset.toFixed(2)}s`;
+          analysisStatus.className = "text-xs text-center text-emerald-400 font-bold min-h-[1rem]";
+        } catch (err) {
+          analysisStatus.textContent = "Error al escanear la onda.";
+        } finally {
+          analyzeWaveBtn.disabled = false;
+        }
+      }, 100);
+    });
+
+    // Algoritmo DSP (Digital Signal Processing)
+    async function detectBpmAndOffset(buffer) {
+      // Tomar los primeros 45 segundos para el escaneo
+      const duration = Math.min(buffer.duration, 45);
+      const sampleRate = buffer.sampleRate;
+      const offlineCtx = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
+
+      const source = offlineCtx.createBufferSource();
+      source.buffer = buffer;
+
+      // Filtro pasa-bajos para aislar bombo / percusión (graves)
+      const filter = offlineCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 150;
+
+      source.connect(filter);
+      filter.connect(offlineCtx.destination);
+      source.start(0);
+
+      const renderedBuffer = await offlineCtx.startRendering();
+      const data = renderedBuffer.getChannelData(0);
+
+      // Calcular energía por bloques de 10ms
+      const step = Math.floor(sampleRate * 0.01);
+      const energies = [];
+      for (let i = 0; i < data.length; i += step) {
+        let sum = 0;
+        for (let j = 0; j < step && (i + j) < data.length; j++) {
+          sum += data[i + j] * data[i + j];
+        }
+        energies.push(Math.sqrt(sum / step));
+      }
+
+      // Encontrar picos que superen el umbral promedio
+      const avgEnergy = energies.reduce((a, b) => a + b, 0) / energies.length;
+      const peaks = [];
+      for (let i = 1; i < energies.length - 1; i++) {
+        if (energies[i] > avgEnergy * 1.3 && energies[i] > energies[i - 1] && energies[i] > energies[i + 1]) {
+          peaks.push(i * 0.01); // Tiempo en segundos
+        }
+      }
+
+      // Calcular intervalos entre picos para estimar BPM (Rango 80 - 180 BPM)
+      const intervals = [];
+      for (let i = 1; i < peaks.length; i++) {
+        const diff = peaks[i] - peaks[i - 1];
+        const tempBpm = 60 / diff;
+        if (tempBpm >= 80 && tempBpm <= 180) {
+          intervals.push(tempBpm);
+        }
+      }
+
+      // Promedio ponderado de los BPMs detectados
+      intervals.sort((a, b) => a - b);
+      const medianBpm = intervals.length > 0 ? intervals[Math.floor(intervals.length / 2)] : 120;
+      
+      // El primer pico representativo es el offset inicial
+      const offset = peaks.length > 0 ? peaks[0] : 0;
+
+      return { bpm: medianBpm, offset: offset };
+    }
+
+    // Manual Overrides
+    bpmInput.addEventListener('input', () => bpm = parseFloat(bpmInput.value) || 120);
+    offsetInput.addEventListener('input', () => firstBeatOffset = parseFloat(offsetInput.value) || 0);
+
+    // Reproducción
     function playAudio() {
       if (audioPlayer.src) {
         audioPlayer.play();
@@ -171,13 +263,10 @@
       nextStepDisplay.textContent = "Listo para iniciar...";
     }
 
-    // Eventos de los botones de reproducción
     previewPlayBtn.addEventListener('click', playAudio);
     playBtn.addEventListener('click', playAudio);
-
     previewPauseBtn.addEventListener('click', pauseAudio);
     pauseBtn.addEventListener('click', pauseAudio);
-
     resetBtn.addEventListener('click', resetSongState);
     mainResetBtn.addEventListener('click', resetSongState);
 
@@ -187,35 +276,7 @@
       currentTimeDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
-    // Tap Tempo
-    tapBtn.addEventListener('click', () => {
-      const now = performance.now();
-      tapTimes.push(now);
-      if (tapTimes.length > 4) tapTimes.shift();
-
-      if (tapTimes.length > 1) {
-        const intervals = [];
-        for (let i = 1; i < tapTimes.length; i++) {
-          intervals.push(tapTimes[i] - tapTimes[i-1]);
-        }
-        const avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
-        bpm = Math.round(60000 / avgInterval);
-        bpmInput.value = bpm;
-      }
-    });
-
-    bpmInput.addEventListener('input', () => {
-      bpm = parseFloat(bpmInput.value) || 120;
-    });
-
-    // Fijar "Tiempo 1"
-    setOffsetBtn.addEventListener('click', () => {
-      firstBeatOffset = audioPlayer.currentTime;
-      offsetStatus.textContent = `✓ Tiempo 1 fijado en el segundo ${firstBeatOffset.toFixed(2)}s`;
-      offsetStatus.className = "text-xs text-center mt-2 text-emerald-400 font-bold h-4";
-    });
-
-    // Algoritmo de Sincronización
+    // Sincronización precisa en tiempo real
     function syncDance() {
       if (!audioPlayer.paused && !audioPlayer.ended) {
         const currentTime = audioPlayer.currentTime;
@@ -231,7 +292,6 @@
           beatDisplay.textContent = currentBeat;
           barDisplay.textContent = currentBar;
 
-          // Lanzar voz en el Compás 7 (Anticipación de 2 compases)
           if (currentBar === 7 && lastAnnouncedBar !== totalBars) {
             lastAnnouncedBar = totalBars;
             announceNextStep();
@@ -242,7 +302,7 @@
       }
     }
 
-    // Síntesis de Voz
+    // Voz
     function announceNextStep() {
       const randomStep = danceSteps[Math.floor(Math.random() * danceSteps.length)];
       nextStepDisplay.textContent = randomStep;
