@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dance Coach BPM & Cue App</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .pulse-animation {
+      animation: pulse-ring 0.6s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans flex flex-col items-center justify-center p-4">
+
+  <div class="max-w-xl w-full bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-center">
+      <h1 class="text-2xl font-extrabold tracking-wide text-white"><i class="fa-solid font-bold fa-music mr-2"></i>Dance BPM Coach</h1>
+      <p class="text-indigo-200 text-sm mt-1">Sincronización y avisos automáticos de baile</p>
+    </div>
+
+    <!-- Stepper Navigation -->
+    <div class="flex justify-between items-center border-b border-slate-700 bg-slate-800/50 p-4 text-xs md:text-sm">
+      <div id="step-tab-1" class="flex items-center gap-2 text-indigo-400 font-bold">
+        <span class="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs">1</span>
+        <span>Cargar</span>
+      </div>
+      <i class="fa-solid fa-chevron-right text-slate-600"></i>
+      <div id="step-tab-2" class="flex items-center gap-2 text-slate-500">
+        <span class="w-6 h-6 rounded-full bg-slate-700 text-white flex items-center justify-center text-xs">2</span>
+        <span>Procesar</span>
+      </div>
+      <i class="fa-solid fa-chevron-right text-slate-600"></i>
+      <div id="step-tab-3" class="flex items-center gap-2 text-slate-500">
+        <span class="w-6 h-6 rounded-full bg-slate-700 text-white flex items-center justify-center text-xs">3</span>
+        <span>¡Bailar!</span>
+      </div>
+    </div>
+
+    <div class="p-6">
+      <!-- STEP 1: Upload MP3/WAV -->
+      <div id="section-step-1" class="space-y-4">
+        <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-upload text-indigo-400"></i> Paso 1: Selecciona tu archivo de audio
+        </h2>
+        <div id="drop-zone" class="border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-8 text-center cursor-pointer transition-colors bg-slate-800/80">
+          <i class="fa-solid fa-file-audio text-4xl text-indigo-400 mb-3"></i>
+          <p class="text-sm font-semibold text-slate-300">Arrastra tu canción aquí o haz clic para buscar</p>
+          <p class="text-xs text-slate-500 mt-1">Soporta formatos .mp3 y .wav</p>
+          <input type="file" id="audio-input" accept="audio/mp3, audio/wav, audio/mpeg" class="hidden" />
+        </div>
+        <div id="file-info" class="hidden bg-slate-700/50 p-3 rounded-lg flex items-center justify-between">
+          <span id="file-name" class="text-xs font-mono truncate text-indigo-300"></span>
+          <button id="btn-to-step-2" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-4 py-2 rounded-lg font-bold transition">
+            Siguiente <i class="fa-solid fa-arrow-right ml-1"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- STEP 2: Process BPM -->
+      <div id="section-step-2" class="hidden space-y-6 text-center py-4">
+        <div id="processing-spinner" class="space-y-3">
+          <i class="fa-solid fa-circle-notch fa-spin text-4xl text-indigo-500"></i>
+          <p class="text-sm text-slate-300 font-medium">Analizando audio con Web Audio API...</p>
+          <p class="text-xs text-slate-500">Calculando picos de energía y tempo en tiempo real</p>
+        </div>
+
+        <div id="bpm-result" class="hidden space-y-4">
+          <div class="bg-slate-700/40 p-6 rounded-2xl border border-slate-600 inline-block w-full">
+            <span class="text-xs uppercase tracking-wider text-slate-400 font-bold">BPM Detectado</span>
+            <div id="bpm-value" class="text-5xl font-black text-indigo-400 my-2">--</div>
+            <p class="text-xs text-slate-400">Tiempo por compás (4/4): <span id="bar-duration" class="font-mono text-slate-200">--</span>s</p>
+          </div>
+
+          <div class="flex justify-center gap-3">
+            <button id="btn-reprocess" class="bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs px-4 py-2 rounded-lg font-bold">
+              <i class="fa-solid fa-rotate-right mr-1"></i> Reanalizar
+            </button>
+            <button id="btn-to-step-3" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-sm px-6 py-2.5 rounded-lg font-bold shadow-lg transition">
+              ¡Ir a Bailar! <i class="fa-solid fa-play ml-1"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: Dance Engine -->
+      <div id="section-step-3" class="hidden space-y-6">
+        <!-- Audio Element -->
+        <audio id="audio-player" class="w-full mt-2 hidden" controls></audio>
+
+        <!-- Player Controls Header -->
+        <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 flex items-center justify-between">
+          <button id="btn-play-pause" class="w-12 h-12 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full flex items-center justify-center text-lg shadow-lg">
+            <i class="fa-solid fa-play"></i>
+          </button>
+          <div class="text-right">
+            <span class="text-xs text-slate-400 block">Tiempo actual</span>
+            <span id="time-display" class="font-mono text-lg font-bold text-slate-200">00:00</span>
+          </div>
+        </div>
+
+        <!-- Real-time Beat & Bar Counters -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-slate-700/30 p-4 rounded-xl border border-slate-700 text-center">
+            <span class="text-xs text-slate-400 font-bold uppercase tracking-wider block">Compás Actual</span>
+            <span id="current-bar-display" class="text-3xl font-black text-indigo-400">0</span>
+            <span class="text-xs text-slate-500 block mt-1">(Bloque de 8)</span>
+          </div>
+          <div class="bg-slate-700/30 p-4 rounded-xl border border-slate-700 text-center">
+            <span class="text-xs text-slate-400 font-bold uppercase tracking-wider block">Tiempo (Beat)</span>
+            <div class="flex justify-center items-center gap-2 mt-2">
+              <span id="beat-dot" class="w-4 h-4 rounded-full bg-slate-600"></span>
+              <span id="current-beat-display" class="text-2xl font-bold text-slate-200">1</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dance Move Announcer Box -->
+        <div id="cue-box" class="bg-gradient-to-br from-slate-800 to-indigo-950 p-6 rounded-2xl border-2 border-indigo-500/50 text-center relative overflow-hidden transition-all">
+          <span class="text-xs font-bold text-indigo-300 uppercase tracking-widest block mb-2">Próxima Figura (Compás 7)</span>
+          <h3 id="current-move-display" class="text-2xl font-extrabold text-amber-300 min-h-[3rem] flex items-center justify-center">
+            Listos para iniciar...
+          </h3>
+          <p id="cue-status" class="text-xs text-slate-400 mt-2">El aviso de voz sonará 2 compases antes del cambio.</p>
+        </div>
+
+        <div class="text-center pt-2">
+          <button id="btn-back-step-1" class="text-xs text-slate-500 hover:text-slate-300 underline">
+            Cargar otra canción
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 100 DANCE MOVES GENERATED ---
+    const danceMoves = [
+      "Paso Básico Estándar", "Vuelta Izquierda", "Vuelta Derecha", "Enchufla Doble", "Setenta y Uno",
+      "Paso Cruzado Lateral", "Candado Urbano", "Vacílala con Mano", "Dile que No", "Sombrero Mágico",
+      "Paso de Cumbia Rebotado", "Giro de Fantasía", "Caminata Estilo Salsa", "Ocho Cruzado", "Campana con Onda",
+      "Apertura Lateral", "Vuelta de Pecho", "Tractor Bailarín", "Paso Suspendido", "Contratiempo Suave",
+      "Cruce Doble de Pies", "Serpiente Hip-Hop", "Paso de Mambo", "Vuelta de Espalda", "Deslice Lateral",
+      "Patada y Giro", "Tornillo Explosivo", "Paso de Rumba", "Onda Corporal Total", "Sombra Doble",
+      "Paso de Cadera Cumbia", "Giro Cruzado Flash", "Rebote de Tobillo", "Vuelta Mariposa", "Paso Sincopado",
+      "Efecto Espejo", "Cruce Retro", "Círculo de Pélvis", "Cadena de Vueltas", "Paso de Swing",
+      "Doble Tap Frontal", "Onda de Brazo", "Desplazamiento Diagonal", "Giro en Dos Tiempos", "Salto Amortiguado",
+      "Paso de Cha-Cha", "Púa de Pie", "Giro con Freno", "Toque de Talón", "Camino Sabor",
+      "Corte Fino", "Paso Suspenso", "Vuelta de Cabeza", "Cruce Sabor", "Onda Inversa",
+      "Paso de Talón-Punta", "Látigo Rítmico", "Giro Doble Sincronizado", "Paso de Escorpión", "Deslice Inverso",
+      "Cumbia Estilo Urbano", "Giro Furia", "Paso de Muñeca", "Ocho de Cadera", "Vuelta del Tirabuzón",
+      "Paso de Resorte", "Cruce Rápido", "Apertura Flamenca", "Paso de Reloj", "Toque Doble Lateral",
+      "Giro de Compás", "Onda de Torso", "Caminata Elegante", "Paso de Tijera", "Vuelta Cósmica",
+      "Paso Estilo Funk", "Cruce de Rodillas", "Giro de Muñeco", "Toque Sincopado", "Deslice Mágico",
+      "Paso de Pirueta", "Vuelta Torbellino", "Onda de Hombros", "Paso Mambo Doble", "Cruce Estilo Pop",
+      "Giro con Suspenso", "Paso de Viento", "Toque Inverso", "Vuelta de Sol", "Paso Suave de Cumbia",
+      "Cruce de Diamante", "Onda de Sombra", "Giro Relámpago", "Paso de Péndulo", "Vuelta Estilo Bachata",
+      "Toque de Cadera", "Paso de Nube", "Cruce de Rayo", "Giro Estilo Salsa", "Vuelta Final Impacto"
+    ];
+
+    // --- APP STATE ---
+    let audioFile = null;
+    let audioBuffer = null;
+    let computedBpm = 120;
+    let barDuration = 2; // Duration of 1 bar in seconds
+    let isPlaying = false;
+    let lastAnnouncedBlock = -1;
+
+    // --- DOM ELEMENTS ---
+    const dropZone = document.getElementById('drop-zone');
+    const audioInput = document.getElementById('audio-input');
+    const fileInfo = document.getElementById('file-info');
+    const fileName = document.getElementById('file-name');
+    const btnToStep2 = document.getElementById('btn-to-step-2');
+    
+    const sectionStep1 = document.getElementById('section-step-1');
+    const sectionStep2 = document.getElementById('section-step-2');
+    const sectionStep3 = document.getElementById('section-step-3');
+
+    const tabStep1 = document.getElementById('step-tab-1');
+    const tabStep2 = document.getElementById('step-tab-2');
+    const tabStep3 = document.getElementById('step-tab-3');
+
+    const processingSpinner = document.getElementById('processing-spinner');
+    const bpmResult = document.getElementById('bpm-result');
+    const bpmValue = document.getElementById('bpm-value');
+    const barDurationDisplay = document.getElementById('bar-duration');
+    const btnToStep3 = document.getElementById('btn-to-step-3');
+
+    const audioPlayer = document.getElementById('audio-player');
+    const btnPlayPause = document.getElementById('btn-play-pause');
+    const timeDisplay = document.getElementById('time-display');
+    const currentBarDisplay = document.getElementById('current-bar-display');
+    const currentBeatDisplay = document.getElementById('current-beat-display');
+    const beatDot = document.getElementById('beat-dot');
+    const currentMoveDisplay = document.getElementById('current-move-display');
+    const cueBox = document.getElementById('cue-box');
+
+    // --- STEP 1: UPLOAD HANDLING ---
+    dropZone.addEventListener('click', () => audioInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-500'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-indigo-500'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-indigo-500');
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    audioInput.addEventListener('change', (e) => {
+      if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+      if (!file.type.includes('audio')) {
+        alert('Por favor selecciona un archivo de audio válido (.mp3 o .wav)');
+        return;
+      }
+      audioFile = file;
+      fileName.textContent = file.name;
+      fileInfo.classList.remove('hidden');
+      audioPlayer.src = URL.createObjectURL(file);
+    }
+
+    btnToStep2.addEventListener('click', () => {
+      switchSection(2);
+      processAudioBpm();
+    });
+
+    // --- STEP 2: REAL WEBAUDIO API BPM ANALYSIS ---
+    async function processAudioBpm() {
+      processingSpinner.classList.remove('hidden');
+      bpmResult.classList.add('hidden');
+
+      try {
+        const arrayBuffer = await audioFile.arrayBuffer();
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+        // Simple Peak Detection Algorithm for BPM calculation
+        const offlineCtx = new OfflineAudioContext(1, audioBuffer.length, audioBuffer.sampleRate);
+        const source = offlineCtx.createBufferSource();
+        source.buffer = audioBuffer;
+
+        // Filter out high frequencies to isolate beat/drum sounds
+        const filter = offlineCtx.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.value = 150;
+
+        source.connect(filter);
+        filter.connect(offlineCtx.destination);
+        source.start(0);
+
+        const renderedBuffer = await offlineCtx.startRendering();
+        const pcmData = renderedBuffer.getChannelData(0);
+        
+        computedBpm = calculateBPMFromPCM(pcmData, renderedBuffer.sampleRate);
+        barDuration = (60 / computedBpm) * 4;
+
+        // Display results
+        bpmValue.textContent = Math.round(computedBpm);
+        barDurationDisplay.textContent = barDuration.toFixed(2);
+
+        processingSpinner.classList.add('hidden');
+        bpmResult.classList.remove('hidden');
+      } catch (err) {
+        console.error("Audio Processing Error:", err);
+        // Fallback BPM if decoding fails
+        computedBpm = 120;
+        barDuration = 2;
+        bpmValue.textContent = "120 (Aprox)";
+        barDurationDisplay.textContent = "2.00";
+        processingSpinner.classList.add('hidden');
+        bpmResult.classList.remove('hidden');
+      }
+    }
+
+    // BPM Calculation logic using peak intervals
+    function calculateBPMFromPCM(pcmData, sampleRate) {
+      const step = Math.floor(sampleRate / 100); 
+      const peaks = [];
+      let threshold = 0.3;
+
+      for (let i = 0; i < pcmData.length; i += step) {
+        if (Math.abs(pcmData[i]) > threshold) {
+          peaks.push(i);
+        }
+      }
+
+      // Calculate intervals between peaks
+      const intervals = [];
+      for (let i = 1; i < peaks.length; i++) {
+        const interval = peaks[i] - peaks[i - 1];
+        const timeInterval = interval / sampleRate;
+        if (timeInterval >= 0.35 && timeInterval <= 0.8) { // Between 75 and 170 BPM
+          intervals.push(timeInterval);
+        }
+      }
+
+      if (intervals.length === 0) return 120; // Default fallback
+
+      const averageInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+      let rawBpm = 60 / averageInterval;
+      
+      // Normalize BPM into a realistic dance range (80-160)
+      while (rawBpm < 80) rawBpm *= 2;
+      while (rawBpm > 160) rawBpm /= 2;
+
+      return rawBpm;
+    }
+
+    btnToStep3.addEventListener('click', () => switchSection(3));
+
+    // --- STEP 3: DANCE & CUE ENGINE ---
+    btnPlayPause.addEventListener('click', () => {
+      if (audioPlayer.paused) {
+        audioPlayer.play();
+        btnPlayPause.innerHTML = `<i class="fa-solid fa-pause"></i>`;
+        isPlaying = true;
+      } else {
+        audioPlayer.pause();
+        btnPlayPause.innerHTML = `<i class="fa-solid fa-play"></i>`;
+        isPlaying = false;
+      }
+    });
+
+    // Real-time synchronization loop using Audio currentTime
+    audioPlayer.addEventListener('timeupdate', () => {
+      const currentTime = audioPlayer.currentTime;
+      
+      // Format mm:ss
+      const mins = Math.floor(currentTime / 60);
+      const secs = Math.floor(currentTime % 60).toString().padStart(2, '0');
+      timeDisplay.textContent = `${mins}:${secs}`;
+
+      if (computedBpm <= 0) return;
+
+      const timePerBeat = 60 / computedBpm;
+      const totalBeats = Math.floor(currentTime / timePerBeat);
+      const currentBeatInBar = (totalBeats % 4) + 1;
+      const totalBars = Math.floor(totalBeats / 4);
+      const barInBlock = (totalBars % 8) + 1;
+      const blockIndex = Math.floor(totalBars / 8);
+
+      currentBarDisplay.textContent = barInBlock;
+      currentBeatDisplay.textContent = currentBeatInBar;
+
+      // Pulse indicator on beat
+      beatDot.classList.toggle('bg-emerald-400', currentBeatInBar === 1);
+      beatDot.classList.toggle('bg-slate-600', currentBeatInBar !== 1);
+
+      // --- CUE TRIGGER: AT BAR 7 (2 BARS PREVIOUS) ---
+      if (barInBlock === 7 && lastAnnouncedBlock !== blockIndex) {
+        lastAnnouncedBlock = blockIndex;
+        triggerDanceCue();
+      }
+    });
+
+    function triggerDanceCue() {
+      // Select random move from 100 moves
+      const randomMove = danceMoves[Math.floor(Math.random() * danceMoves.length)];
+      
+      currentMoveDisplay.textContent = randomMove;
+      cueBox.classList.add('ring-4', 'ring-amber-400', 'pulse-animation');
+
+      // Speech Synthesis (Voz)
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Stop ongoing speech
+        const utterance = new SpeechSynthesisUtterance(`¡Atentos, viene: ${randomMove}!`);
+        utterance.lang = 'es-ES';
+        utterance.rate = 1.1; // Slightly faster for timing
+        window.speechSynthesis.speak(utterance);
+      }
+
+      setTimeout(() => {
+        cueBox.classList.remove('ring-4', 'ring-amber-400', 'pulse-animation');
+      }, 3000);
+    }
+
+    document.getElementById('btn-back-step-1').addEventListener('click', () => {
+      audioPlayer.pause();
+      switchSection(1);
+    });
+
+    // Navigation Switcher
+    function switchSection(step) {
+      sectionStep1.classList.add('hidden');
+      sectionStep2.classList.add('hidden');
+      sectionStep3.classList.add('hidden');
+
+      tabStep1.className = "flex items-center gap-2 text-slate-500";
+      tabStep2.className = "flex items-center gap-2 text-slate-500";
+      tabStep3.className = "flex items-center gap-2 text-slate-500";
+
+      if (step === 1) {
+        sectionStep1.classList.remove('hidden');
+        tabStep1.className = "flex items-center gap-2 text-indigo-400 font-bold";
+      } else if (step === 2) {
+        sectionStep2.classList.remove('hidden');
+        tabStep2.className = "flex items-center gap-2 text-indigo-400 font-bold";
+      } else if (step === 3) {
+        sectionStep3.classList.remove('hidden');
+        tabStep3.className = "flex items-center gap-2 text-indigo-400 font-bold";
+      }
+    }
+  </script>
+</body>
+</html>
