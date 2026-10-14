@@ -11,49 +11,60 @@
   <div class="max-w-xl w-full bg-slate-800 rounded-xl p-6 shadow-2xl my-auto border border-slate-700">
     <h1 class="text-3xl font-extrabold text-center text-amber-400 mb-6">🕺 Trainer Beats Sync</h1>
 
-    <!-- 1. Cargar Canción -->
+    <!-- PASO 1: CARGAR ARCHIVO -->
     <div class="mb-6 bg-slate-900 p-4 rounded-lg border border-slate-700">
       <label class="block text-sm font-medium mb-2 text-slate-300">1. Selecciona tu MP3 / WAV</label>
       <input type="file" id="audioFile" accept="audio/*" class="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-amber-500 file:text-slate-900 hover:file:bg-amber-400 font-semibold cursor-pointer">
     </div>
 
-    <!-- 2. Calibración y Ajuste de BPM -->
+    <!-- PASO 2: PROCESAR / CALIBRAR (REPRODUCCIÓN Y TAP) -->
     <div class="mb-6 bg-slate-900 p-4 rounded-lg border border-slate-700 space-y-4">
-      <h2 class="text-sm font-medium text-slate-300">2. Calibración de Ritmo (Ajuste Fino)</h2>
+      <h2 class="text-sm font-medium text-slate-300">2. Procesar y Cuadrar Tiempos</h2>
       
-      <div class="grid grid-cols-2 gap-4">
+      <!-- Reproductor de Prueba / Calibración -->
+      <div class="flex items-center space-x-3">
+        <button id="previewPlayBtn" disabled class="flex-1 py-2 px-4 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 font-bold rounded text-sm transition">
+          ▶️ Escuchar Canción
+        </button>
+        <span id="currentTimeDisplay" class="text-xs font-mono text-amber-400 w-16 text-right">00:00</span>
+      </div>
+
+      <!-- Ajuste de BPM y Tap Tempo -->
+      <div class="grid grid-cols-2 gap-4 pt-2">
         <div>
           <label class="text-xs text-slate-400 block mb-1">BPM Exacto</label>
-          <div class="flex items-center space-x-2">
-            <input type="number" id="bpmInput" value="120" step="0.5" class="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-xl font-bold text-amber-400 focus:outline-none text-center">
-          </div>
+          <input type="number" id="bpmInput" value="120" step="0.5" class="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-xl font-bold text-amber-400 focus:outline-none text-center">
         </div>
         <div>
           <label class="text-xs text-slate-400 block mb-1">Tap Tempo</label>
-          <button id="tapBtn" class="w-full h-11 bg-slate-700 hover:bg-slate-600 active:bg-amber-500 active:text-slate-900 font-bold rounded transition">
-            🥁 Dar Toques (Tap)
+          <button id="tapBtn" disabled class="w-full h-11 bg-slate-700 hover:bg-slate-600 active:bg-amber-500 active:text-slate-900 font-bold rounded transition text-sm">
+            🥁 Tap Tempo
           </button>
         </div>
       </div>
 
-      <div class="pt-2">
-        <button id="setOffsetBtn" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 font-bold rounded text-sm transition">
-          📍 Marcar "Tiempo 1" de la Canción (En vivo)
+      <!-- Botón Marcar Tiempo 1 -->
+      <div>
+        <button id="setOffsetBtn" disabled class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 font-bold rounded text-sm transition">
+          📍 Marcar "Tiempo 1" (Golpe Inicial)
         </button>
-        <p class="text-xs text-slate-400 text-center mt-1">Presiona este botón justo cuando suene el primer golpe de la música.</p>
+        <!-- Notificación visual elegante (reemplazo del alert) -->
+        <p id="offsetStatus" class="text-xs text-center mt-2 text-slate-400 h-4">
+          Tiempo 1 no fijado (0.00s)
+        </p>
       </div>
     </div>
 
-    <!-- Reproductor y Controles -->
+    <!-- PASO 3: BAILAR -->
     <div class="mb-6 text-center">
-      <audio id="audioPlayer" class="w-full mb-4 hidden" controls></audio>
+      <audio id="audioPlayer" class="hidden"></audio>
       
       <button id="playBtn" disabled class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 font-black text-xl rounded-lg transition shadow-lg">
-        ▶️ INICIAR CLASE DE BAILE
+        💃 ¡INICIAR Y BAILAR!
       </button>
     </div>
 
-    <!-- Visualizador del Conte de Compases -->
+    <!-- MONITOREO DE COMPASES EN TIEMPO REAL -->
     <div class="bg-slate-950 p-6 rounded-xl text-center border border-slate-800">
       <div class="grid grid-cols-2 gap-4 mb-4">
         <div class="bg-slate-900 p-3 rounded-lg">
@@ -66,48 +77,78 @@
         </div>
       </div>
 
-      <div class="mt-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-        <span class="text-xs text-amber-400 font-bold block mb-1">PRÓXIMO PASO (AVISO EN COMPÁS 7):</span>
-        <span id="nextStepDisplay" class="text-xl font-extrabold text-white">Listos para comenzar...</span>
+      <div class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+        <span class="text-xs text-amber-400 font-bold block mb-1">PRÓXIMA FIGURA (AVISO EN COMPÁS 7):</span>
+        <span id="nextStepDisplay" class="text-xl font-extrabold text-white">Carga tu canción para comenzar...</span>
       </div>
     </div>
   </div>
 
   <script>
-    // Catálogo de Pasos
-    const danceSteps = [
-      "Paso Básico", "Setenta", "Enchufla", "Vacílala", "Sombrero", "Dile que no", 
-      "Paso Cruzado", "Vuelta de la Mujer", "Vuelta del Hombre", "El Candado",
-      "Ocho con Vuelta", "Paso de Cumbia", "Pivote y Mariposa", "Caminada Doble"
-    ];
+    // Catálogo con 100 figuras de baile precargadas
+    const danceSteps = Array.from({ length: 100 }, (_, i) => {
+      const bases = ["Setenta", "Enchufla", "Vacílala", "Sombrero", "Dile que no", "Paso Cruzado", "Vuelta de la Mujer", "Vuelta del Hombre", "El Candado", "Mariposa", "Paso Cumbia", "Ocho Doble", "Pivote", "Caminada", "Giro Combinado"];
+      const variaciones = ["Simple", "Doble", "con Escape", "Complicado", "con Enganche", "Urbano", "Especial", "Frenado", "con Giro"];
+      return `${bases[i % bases.length]} ${variaciones[i % variaciones.length]}`;
+    });
 
     let bpm = 120;
-    let firstBeatOffset = 0; // Tiempo en segundos del inicio
+    let firstBeatOffset = 0;
     let tapTimes = [];
-    let isPlaying = false;
     let lastAnnouncedBar = -1;
 
     const audioPlayer = document.getElementById('audioPlayer');
     const audioFile = document.getElementById('audioFile');
+    const previewPlayBtn = document.getElementById('previewPlayBtn');
+    const currentTimeDisplay = document.getElementById('currentTimeDisplay');
     const bpmInput = document.getElementById('bpmInput');
     const tapBtn = document.getElementById('tapBtn');
     const setOffsetBtn = document.getElementById('setOffsetBtn');
+    const offsetStatus = document.getElementById('offsetStatus');
     const playBtn = document.getElementById('playBtn');
     const barDisplay = document.getElementById('barDisplay');
     const beatDisplay = document.getElementById('beatDisplay');
     const nextStepDisplay = document.getElementById('nextStepDisplay');
 
-    // Cargar Archivo
+    // 1. Cargar archivo de audio
     audioFile.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
         audioPlayer.src = URL.createObjectURL(file);
+        previewPlayBtn.disabled = false;
+        tapBtn.disabled = false;
+        setOffsetBtn.disabled = false;
         playBtn.disabled = false;
         firstBeatOffset = 0;
+        offsetStatus.textContent = "Tiempo 1 no fijado (0.00s)";
+        offsetStatus.className = "text-xs text-center mt-2 text-slate-400 h-4";
       }
     });
 
-    // Tap Tempo
+    // Reproducción de prueba en el área de procesamiento
+    previewPlayBtn.addEventListener('click', () => {
+      if (audioPlayer.paused) {
+        audioPlayer.play();
+        previewPlayBtn.textContent = "⏸️ Pausar";
+        previewPlayBtn.classList.replace('bg-slate-700', 'bg-amber-600');
+        requestAnimationFrame(updateTimeDisplay);
+      } else {
+        audioPlayer.pause();
+        previewPlayBtn.textContent = "▶️ Escuchar Canción";
+        previewPlayBtn.classList.replace('bg-amber-600', 'bg-slate-700');
+      }
+    });
+
+    function updateTimeDisplay() {
+      if (!audioPlayer.paused) {
+        const mins = Math.floor(audioPlayer.currentTime / 60);
+        const secs = Math.floor(audioPlayer.currentTime % 60);
+        currentTimeDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        requestAnimationFrame(updateTimeDisplay);
+      }
+    }
+
+    // 2. Tap Tempo
     tapBtn.addEventListener('click', () => {
       const now = performance.now();
       tapTimes.push(now);
@@ -128,29 +169,32 @@
       bpm = parseFloat(bpmInput.value) || 120;
     });
 
-    // Marcar el inicio exacto del tiempo 1
+    // 3. Fijar "Tiempo 1" (Sin alert)
     setOffsetBtn.addEventListener('click', () => {
       firstBeatOffset = audioPlayer.currentTime;
-      alert(`¡Tiempo 1 fijado en el segundo ${firstBeatOffset.toFixed(2)}!`);
+      offsetStatus.textContent = `✓ Tiempo 1 fijado en el segundo ${firstBeatOffset.toFixed(2)}s`;
+      offsetStatus.className = "text-xs text-center mt-2 text-emerald-400 font-bold h-4";
     });
 
-    // Reproducción y Sincronización
+    // 4. Modo Bailar (Inicio completo)
     playBtn.addEventListener('click', () => {
       if (audioPlayer.paused) {
         audioPlayer.play();
-        playBtn.textContent = "⏸️ PAUSAR";
+        playBtn.textContent = "⏸️ PAUSAR CLASE";
         playBtn.classList.replace('bg-emerald-600', 'bg-amber-600');
-        isPlaying = true;
+        previewPlayBtn.textContent = "⏸️ Pausar";
+        previewPlayBtn.classList.replace('bg-slate-700', 'bg-amber-600');
         requestAnimationFrame(syncDance);
       } else {
         audioPlayer.pause();
-        playBtn.textContent = "▶️ CONTINUAR";
+        playBtn.textContent = "💃 ¡INICIAR Y BAILAR!";
         playBtn.classList.replace('bg-amber-600', 'bg-emerald-600');
-        isPlaying = false;
+        previewPlayBtn.textContent = "▶️ Escuchar Canción";
+        previewPlayBtn.classList.replace('bg-amber-600', 'bg-slate-700');
       }
     });
 
-    // Motor de Sincronización basado en el Reloj Interno del Audio
+    // Algoritmo de Sincronización en tiempo real
     function syncDance() {
       if (!audioPlayer.paused && !audioPlayer.ended) {
         const currentTime = audioPlayer.currentTime;
@@ -172,17 +216,18 @@
             announceNextStep();
           }
         }
+        updateTimeDisplay();
         requestAnimationFrame(syncDance);
       }
     }
 
-    // Anuncio por Voz
+    // Síntesis de Voz
     function announceNextStep() {
       const randomStep = danceSteps[Math.floor(Math.random() * danceSteps.length)];
       nextStepDisplay.textContent = randomStep;
 
       if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel(); // Limpia la cola
+        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(`Prepara: ${randomStep}`);
         utterance.lang = 'es-ES';
         utterance.rate = 1.1;
