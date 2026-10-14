@@ -21,12 +21,22 @@
     <div class="mb-6 bg-slate-900 p-4 rounded-lg border border-slate-700 space-y-4">
       <h2 class="text-sm font-medium text-slate-300">2. Procesar y Cuadrar Tiempos</h2>
       
-      <!-- Reproductor de Prueba / Calibración -->
-      <div class="flex items-center space-x-3">
-        <button id="previewPlayBtn" disabled class="flex-1 py-2 px-4 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 font-bold rounded text-sm transition">
-          ▶️ Escuchar Canción
+      <!-- Controles de Prueba / Calibración -->
+      <div class="grid grid-cols-3 gap-2">
+        <button id="previewPlayBtn" disabled class="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 font-bold rounded text-xs transition">
+          ▶️ Escuchar
         </button>
-        <span id="currentTimeDisplay" class="text-xs font-mono text-amber-400 w-16 text-right">00:00</span>
+        <button id="previewPauseBtn" disabled class="py-2 px-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 font-bold rounded text-xs transition">
+          ⏸️ Pausar
+        </button>
+        <button id="resetBtn" disabled class="py-2 px-3 bg-rose-700 hover:bg-rose-600 disabled:opacity-50 font-bold rounded text-xs transition">
+          🔄 Reiniciar
+        </button>
+      </div>
+
+      <div class="flex justify-between items-center bg-slate-800 p-2 rounded border border-slate-700">
+        <span class="text-xs text-slate-400">Tiempo actual:</span>
+        <span id="currentTimeDisplay" class="text-sm font-mono text-amber-400 font-bold">00:00</span>
       </div>
 
       <!-- Ajuste de BPM y Tap Tempo -->
@@ -48,7 +58,6 @@
         <button id="setOffsetBtn" disabled class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 font-bold rounded text-sm transition">
           📍 Marcar "Tiempo 1" (Golpe Inicial)
         </button>
-        <!-- Notificación visual elegante (reemplazo del alert) -->
         <p id="offsetStatus" class="text-xs text-center mt-2 text-slate-400 h-4">
           Tiempo 1 no fijado (0.00s)
         </p>
@@ -56,12 +65,20 @@
     </div>
 
     <!-- PASO 3: BAILAR -->
-    <div class="mb-6 text-center">
+    <div class="mb-6 space-y-3">
       <audio id="audioPlayer" class="hidden"></audio>
       
-      <button id="playBtn" disabled class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 font-black text-xl rounded-lg transition shadow-lg">
-        💃 ¡INICIAR Y BAILAR!
-      </button>
+      <div class="grid grid-cols-3 gap-2">
+        <button id="playBtn" disabled class="col-span-1 py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 font-black text-lg rounded-lg transition shadow-lg">
+          💃 ¡BAILAR!
+        </button>
+        <button id="pauseBtn" disabled class="col-span-1 py-4 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 font-black text-lg rounded-lg transition shadow-lg">
+          ⏸️ PAUSAR
+        </button>
+        <button id="mainResetBtn" disabled class="col-span-1 py-4 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 font-black text-lg rounded-lg transition shadow-lg">
+          🔄 REINICIAR
+        </button>
+      </div>
     </div>
 
     <!-- MONITOREO DE COMPASES EN TIEMPO REAL -->
@@ -85,7 +102,7 @@
   </div>
 
   <script>
-    // Catálogo con 100 figuras de baile precargadas
+    // Catálogo con 100 figuras de baile
     const danceSteps = Array.from({ length: 100 }, (_, i) => {
       const bases = ["Setenta", "Enchufla", "Vacílala", "Sombrero", "Dile que no", "Paso Cruzado", "Vuelta de la Mujer", "Vuelta del Hombre", "El Candado", "Mariposa", "Paso Cumbia", "Ocho Doble", "Pivote", "Caminada", "Giro Combinado"];
       const variaciones = ["Simple", "Doble", "con Escape", "Complicado", "con Enganche", "Urbano", "Especial", "Frenado", "con Giro"];
@@ -99,13 +116,21 @@
 
     const audioPlayer = document.getElementById('audioPlayer');
     const audioFile = document.getElementById('audioFile');
+    
+    // Botones de control
     const previewPlayBtn = document.getElementById('previewPlayBtn');
+    const previewPauseBtn = document.getElementById('previewPauseBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    
+    const playBtn = document.getElementById('playBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const mainResetBtn = document.getElementById('mainResetBtn');
+    
     const currentTimeDisplay = document.getElementById('currentTimeDisplay');
     const bpmInput = document.getElementById('bpmInput');
     const tapBtn = document.getElementById('tapBtn');
     const setOffsetBtn = document.getElementById('setOffsetBtn');
     const offsetStatus = document.getElementById('offsetStatus');
-    const playBtn = document.getElementById('playBtn');
     const barDisplay = document.getElementById('barDisplay');
     const beatDisplay = document.getElementById('beatDisplay');
     const nextStepDisplay = document.getElementById('nextStepDisplay');
@@ -115,40 +140,54 @@
       const file = e.target.files[0];
       if (file) {
         audioPlayer.src = URL.createObjectURL(file);
-        previewPlayBtn.disabled = false;
-        tapBtn.disabled = false;
-        setOffsetBtn.disabled = false;
-        playBtn.disabled = false;
-        firstBeatOffset = 0;
-        offsetStatus.textContent = "Tiempo 1 no fijado (0.00s)";
-        offsetStatus.className = "text-xs text-center mt-2 text-slate-400 h-4";
+        
+        // Habilitar todos los botones
+        [previewPlayBtn, previewPauseBtn, resetBtn, playBtn, pauseBtn, mainResetBtn, tapBtn, setOffsetBtn].forEach(b => b.disabled = false);
+        
+        resetSongState();
       }
     });
 
-    // Reproducción de prueba en el área de procesamiento
-    previewPlayBtn.addEventListener('click', () => {
-      if (audioPlayer.paused) {
+    // Reproducción y Pausa
+    function playAudio() {
+      if (audioPlayer.src) {
         audioPlayer.play();
-        previewPlayBtn.textContent = "⏸️ Pausar";
-        previewPlayBtn.classList.replace('bg-slate-700', 'bg-amber-600');
-        requestAnimationFrame(updateTimeDisplay);
-      } else {
-        audioPlayer.pause();
-        previewPlayBtn.textContent = "▶️ Escuchar Canción";
-        previewPlayBtn.classList.replace('bg-amber-600', 'bg-slate-700');
-      }
-    });
-
-    function updateTimeDisplay() {
-      if (!audioPlayer.paused) {
-        const mins = Math.floor(audioPlayer.currentTime / 60);
-        const secs = Math.floor(audioPlayer.currentTime % 60);
-        currentTimeDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        requestAnimationFrame(updateTimeDisplay);
+        requestAnimationFrame(syncDance);
       }
     }
 
-    // 2. Tap Tempo
+    function pauseAudio() {
+      audioPlayer.pause();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    }
+
+    function resetSongState() {
+      pauseAudio();
+      audioPlayer.currentTime = 0;
+      barDisplay.textContent = "1";
+      beatDisplay.textContent = "1";
+      lastAnnouncedBar = -1;
+      updateTimeDisplay();
+      nextStepDisplay.textContent = "Listo para iniciar...";
+    }
+
+    // Eventos de los botones de reproducción
+    previewPlayBtn.addEventListener('click', playAudio);
+    playBtn.addEventListener('click', playAudio);
+
+    previewPauseBtn.addEventListener('click', pauseAudio);
+    pauseBtn.addEventListener('click', pauseAudio);
+
+    resetBtn.addEventListener('click', resetSongState);
+    mainResetBtn.addEventListener('click', resetSongState);
+
+    function updateTimeDisplay() {
+      const mins = Math.floor(audioPlayer.currentTime / 60);
+      const secs = Math.floor(audioPlayer.currentTime % 60);
+      currentTimeDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // Tap Tempo
     tapBtn.addEventListener('click', () => {
       const now = performance.now();
       tapTimes.push(now);
@@ -169,32 +208,14 @@
       bpm = parseFloat(bpmInput.value) || 120;
     });
 
-    // 3. Fijar "Tiempo 1" (Sin alert)
+    // Fijar "Tiempo 1"
     setOffsetBtn.addEventListener('click', () => {
       firstBeatOffset = audioPlayer.currentTime;
       offsetStatus.textContent = `✓ Tiempo 1 fijado en el segundo ${firstBeatOffset.toFixed(2)}s`;
       offsetStatus.className = "text-xs text-center mt-2 text-emerald-400 font-bold h-4";
     });
 
-    // 4. Modo Bailar (Inicio completo)
-    playBtn.addEventListener('click', () => {
-      if (audioPlayer.paused) {
-        audioPlayer.play();
-        playBtn.textContent = "⏸️ PAUSAR CLASE";
-        playBtn.classList.replace('bg-emerald-600', 'bg-amber-600');
-        previewPlayBtn.textContent = "⏸️ Pausar";
-        previewPlayBtn.classList.replace('bg-slate-700', 'bg-amber-600');
-        requestAnimationFrame(syncDance);
-      } else {
-        audioPlayer.pause();
-        playBtn.textContent = "💃 ¡INICIAR Y BAILAR!";
-        playBtn.classList.replace('bg-amber-600', 'bg-emerald-600');
-        previewPlayBtn.textContent = "▶️ Escuchar Canción";
-        previewPlayBtn.classList.replace('bg-amber-600', 'bg-slate-700');
-      }
-    });
-
-    // Algoritmo de Sincronización en tiempo real
+    // Algoritmo de Sincronización
     function syncDance() {
       if (!audioPlayer.paused && !audioPlayer.ended) {
         const currentTime = audioPlayer.currentTime;
